@@ -8,9 +8,12 @@
 import Foundation
 import AudioToolbox
 
-/// Represents a single audio output device (id + display name).
+/// Represents a single audio output device (transient id, stable uid, display name).
+/// Use uid for persistence and matching across reconnects; use id for Core Audio API calls.
 struct AudioDevice: Identifiable, Hashable, Codable {
     var id: UInt32
+    /// Stable device identifier (e.g. Bluetooth address); persists across disconnect/reconnect.
+    var uid: String
     var name: String
 
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
@@ -22,14 +25,15 @@ final class AudioDeviceManager {
 
     // MARK: - Public API
 
-    /// Returns all currently available output devices (id + name).
+    /// Returns all currently available output devices (id, stable uid, name).
     func getOutputDevices() -> [AudioDevice] {
         let ids = getAllDeviceIDs()
         var result: [AudioDevice] = []
         for deviceID in ids {
             guard isOutputDevice(deviceID: deviceID) else { continue }
+            let uid = getDeviceUID(deviceID: deviceID)
             let name = getDeviceName(deviceID: deviceID)
-            result.append(AudioDevice(id: deviceID, name: name))
+            result.append(AudioDevice(id: deviceID, uid: uid, name: name))
         }
         return result
     }
@@ -137,5 +141,21 @@ final class AudioDeviceManager {
             return "Device \(deviceID)"
         }
         return name as String
+    }
+
+    /// Stable device UID (persists across disconnects; use for priority list).
+    private func getDeviceUID(deviceID: AudioDeviceID) -> String {
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: AudioObjectPropertySelector(kAudioDevicePropertyDeviceUID),
+            mScope: AudioObjectPropertyScope(kAudioObjectPropertyScopeGlobal),
+            mElement: AudioObjectPropertyElement(kAudioObjectPropertyElementMaster)
+        )
+        var size = UInt32(MemoryLayout<CFString>.size)
+        var uid: CFString = "" as CFString
+        let err = AudioObjectGetPropertyData(deviceID, &propertyAddress, 0, nil, &size, &uid)
+        if err != noErr {
+            return "device-\(deviceID)"
+        }
+        return uid as String
     }
 }

@@ -12,6 +12,7 @@ import AudioToolbox
 /// Keys for UserDefaults persistence.
 private enum StorageKey {
     static let priorityOrder = "audioPriority.devicePriorityOrder"
+    static let deviceDisplayNames = "audioPriority.deviceDisplayNames"
     static let autoSwitchEnabled = "audioPriority.autoSwitchEnabled"
 }
 
@@ -30,9 +31,14 @@ final class AppState {
     /// Current system default output device ID.
     var defaultOutputDeviceID: AudioDeviceID = kAudioDeviceUnknown
 
-    /// User-defined priority order (device IDs). First = highest priority.
-    var priorityOrder: [UInt32] {
-        didSet { savePriorityOrder() }
+    /// User-defined priority order (device UIDs). First = highest priority. Persisted so reconnects keep position.
+    var priorityOrder: [String] {
+        didSet { savePriorityAndNames() }
+    }
+
+    /// Last-known display name per UID (for showing disconnected devices in UI).
+    var lastSeenDeviceNames: [String: String] {
+        didSet { savePriorityAndNames() }
     }
 
     /// When true, we automatically set default output to the highest-priority available device every poll.
@@ -51,16 +57,15 @@ final class AppState {
     // MARK: - Init & persistence
 
     init() {
-        let stored = UserDefaults.standard.array(forKey: StorageKey.priorityOrder) as? [Int]
-        self.priorityOrder = stored?.map { UInt32(truncatingIfNeeded: $0) } ?? []
+        self.priorityOrder = UserDefaults.standard.array(forKey: StorageKey.priorityOrder) as? [String] ?? []
+        self.lastSeenDeviceNames = UserDefaults.standard.dictionary(forKey: StorageKey.deviceDisplayNames) as? [String: String] ?? [:]
         self.autoSwitchEnabled = UserDefaults.standard.object(forKey: StorageKey.autoSwitchEnabled) as? Bool ?? true
-        // Reflect actual launch-at-login status from the system (e.g. after user changed it in System Settings).
         launchAtLoginManager.refreshStatus()
     }
 
-    private func savePriorityOrder() {
-        let intList = priorityOrder.map { Int(truncatingIfNeeded: $0) }
-        UserDefaults.standard.set(intList, forKey: StorageKey.priorityOrder)
+    private func savePriorityAndNames() {
+        UserDefaults.standard.set(priorityOrder, forKey: StorageKey.priorityOrder)
+        UserDefaults.standard.set(lastSeenDeviceNames, forKey: StorageKey.deviceDisplayNames)
     }
 
     // MARK: - Polling
@@ -82,11 +87,11 @@ final class AppState {
         pollTimer = nil
     }
 
-    /// Single poll: refresh device list and default ID; if auto-switch is on, set default to best device.
+    /// Single poll: refresh device list and default ID; merge by UID so reconnects keep position; auto-switch if enabled.
     private func tick() {
         outputDevices = audioManager.getOutputDevices()
         defaultOutputDeviceID = audioManager.getDefaultOutputDeviceID()
-        ensurePriorityContains(deviceIDs: outputDevices.map(\.id))
+        ensurePriorityContains(devices: outputDevices)
 
         guard autoSwitchEnabled else { return }
 
@@ -106,29 +111,29 @@ final class AppState {
         defaultOutputDeviceID = audioManager.getDefaultOutputDeviceID()
     }
 
-    /// Move a device ID to a new index in the priority order (for reordering in UI).
-    func movePriority(from source: IndexSet, to destination: Int) {
-        var order = priorityOrder
-        order.move(fromOffsets: source, toOffset: destination)
-        priorityOrder = order
+    /// Set priority order to a new UID list (e.g. after drag reorder in UI). Persists.
+    func setPriorityOrder(_ uids: [String]) {
+        priorityOrder = uids
     }
 
-    /// Add device IDs to the priority list if not already present (e.g. when new devices appear).
-    /// New devices are appended at the end.
-    func ensurePriorityContains(deviceIDs: [UInt32]) {
+    /// Add devices to the priority list by UID; only append truly new UIDs. Update last-seen names.
+    func ensurePriorityContains(devices: [AudioDevice]) {
+        var names = lastSeenDeviceNames
         var order = priorityOrder
         var changed = false
-        for id in deviceIDs {
-            if !order.contains(id) {
-                order.append(id)
+        for device in devices {
+            names[device.uid] = device.name
+            if !order.contains(device.uid) {
+                order.append(device.uid)
                 changed = true
             }
         }
         if changed { priorityOrder = order }
+        lastSeenDeviceNames = names
     }
 
-    /// Remove a device ID from the priority list.
-    func removeFromPriority(_ deviceID: UInt32) {
-        priorityOrder.removeAll { $0 == deviceID }
+    /// Remove a UID from the priority list.
+    func removeFromPriority(uid: String) {
+        priorityOrder.removeAll { $0 == uid }
     }
 }

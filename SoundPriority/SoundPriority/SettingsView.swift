@@ -2,21 +2,28 @@
 //  SettingsView.swift
 //  SoundPriority
 //
-//  Settings window: list of devices, priority order, auto-switch toggle.
+//  Settings window: list of devices (including disconnected) by priority, auto-switch and launch-at-login toggles.
 //
 
 import SwiftUI
+
+/// One row in the priority list: either a connected device or a remembered (disconnected) device.
+struct PriorityRowItem: Identifiable {
+    let uid: String
+    var displayName: String
+    var isConnected: Bool
+    var device: AudioDevice?
+    var id: String { uid }
+}
 
 struct SettingsView: View {
     @Bindable var appState: AppState
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Auto-switch toggle
             Toggle("Auto-switch to highest priority device", isOn: $appState.autoSwitchEnabled)
                 .toggleStyle(.switch)
 
-            // Launch at login (ServiceManagement SMAppService.mainApp)
             Toggle("Launch at login", isOn: launchAtLoginBinding)
                 .toggleStyle(.switch)
             if let error = appState.launchAtLoginManager.lastError {
@@ -27,7 +34,6 @@ struct SettingsView: View {
 
             Divider()
 
-            // Current default
             if let defaultDevice = appState.outputDevices.first(where: { $0.id == appState.defaultOutputDeviceID }) {
                 HStack {
                     Text("Current output:")
@@ -39,20 +45,23 @@ struct SettingsView: View {
 
             Divider()
 
-            // Priority order section
             Text("Priority order (top = highest)")
                 .font(.headline)
-            Text("Drag to reorder. First available device becomes the default when auto-switch is on.")
+            Text("Drag to reorder. Known devices keep their position when disconnected.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            // List of devices in priority order (with option to remove from list)
             List {
-                ForEach(priorityOrderedDevices) { device in
+                ForEach(priorityOrderedRows) { row in
                     HStack {
-                        Text(device.name)
+                        Text(row.displayName)
+                        if !row.isConnected {
+                            Text("(Not Connected)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                         Spacer()
-                        if device.id == appState.defaultOutputDeviceID {
+                        if row.device?.id == appState.defaultOutputDeviceID {
                             Text("Default")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
@@ -67,7 +76,6 @@ struct SettingsView: View {
         .frame(minWidth: 360, minHeight: 320)
     }
 
-    /// Binding for "Launch at login" that calls enable/disable and keeps UI in sync with actual status.
     private var launchAtLoginBinding: Binding<Bool> {
         Binding(
             get: { appState.launchAtLoginManager.isEnabled },
@@ -81,19 +89,22 @@ struct SettingsView: View {
         )
     }
 
-    /// Devices ordered by user priority; devices not in priority list appear at the end.
-    private var priorityOrderedDevices: [AudioDevice] {
-        let ordered = appState.priorityOrder.compactMap { id in
-            appState.outputDevices.first { $0.id == id }
+    /// Rows in priority order: connected devices show live name; disconnected show last-seen name + "(Not Connected)".
+    private var priorityOrderedRows: [PriorityRowItem] {
+        appState.priorityOrder.map { uid in
+            if let device = appState.outputDevices.first(where: { $0.uid == uid }) {
+                return PriorityRowItem(uid: uid, displayName: device.name, isConnected: true, device: device)
+            } else {
+                let name = appState.lastSeenDeviceNames[uid] ?? uid
+                return PriorityRowItem(uid: uid, displayName: name, isConnected: false, device: nil)
+            }
         }
-        let remaining = appState.outputDevices.filter { d in !appState.priorityOrder.contains(d.id) }
-        return ordered + remaining
     }
 
     private func movePriority(from source: IndexSet, to destination: Int) {
-        var ids = priorityOrderedDevices.map(\.id)
-        ids.move(fromOffsets: source, toOffset: destination)
-        appState.priorityOrder = ids
+        var uids = priorityOrderedRows.map(\.uid)
+        uids.move(fromOffsets: source, toOffset: destination)
+        appState.setPriorityOrder(uids)
     }
 }
 
