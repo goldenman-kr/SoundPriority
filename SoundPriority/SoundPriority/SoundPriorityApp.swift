@@ -43,9 +43,25 @@ private struct MenuBarMenuContent: View {
             NSApplication.shared.activate(ignoringOtherApps: true)
             openWindow(id: "settings")
         }
+        // Launch at login: SMAppService.mainApp.register() / unregister()
+        Button(action: toggleLaunchAtLogin) {
+            if appState.launchAtLoginManager.isEnabled {
+                Label("Launch at login", systemImage: "checkmark")
+            } else {
+                Text("Launch at login")
+            }
+        }
         Button("Quit") {
             appState.stopPolling()
             NSApplication.shared.terminate(nil)
+        }
+    }
+
+    private func toggleLaunchAtLogin() {
+        if appState.launchAtLoginManager.isEnabled {
+            appState.launchAtLoginManager.disable()
+        } else {
+            appState.launchAtLoginManager.enable()
         }
     }
 }
