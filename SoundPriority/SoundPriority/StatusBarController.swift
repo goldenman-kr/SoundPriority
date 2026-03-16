@@ -18,10 +18,13 @@ final class StatusBarController: NSObject {
         super.init()
 
         if let button = statusItem.button {
-            button.image = NSImage(
-                systemSymbolName: "speaker.wave.2.fill",
-                accessibilityDescription: "AudioPriority"
-            )
+            // Use custom template asset for the menu bar icon so it adapts to light/dark mode.
+            if let image = NSImage(named: NSImage.Name("SoundPriority_bar")) {
+                image.isTemplate = true
+                button.image = image
+            }
+            // Ensure the status item treats the image as a template-only glyph.
+            button.imagePosition = .imageOnly
             button.action = #selector(togglePopover(_:))
             button.target = self
         }
