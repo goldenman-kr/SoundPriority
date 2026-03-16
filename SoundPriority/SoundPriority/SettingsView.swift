@@ -55,16 +55,37 @@ struct SettingsView: View {
                 ForEach(priorityOrderedRows) { row in
                     HStack {
                         Text(row.displayName)
+                            .fontWeight(row.device?.id == appState.defaultOutputDeviceID ? .semibold : .regular)
+
                         if !row.isConnected {
                             Text("(Not Connected)")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
+
                         Spacer()
+
                         if row.device?.id == appState.defaultOutputDeviceID {
-                            Text("Default")
+                            Text("Current")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                        }
+
+                        // Manual "Play on this device" button.
+                        if let device = row.device {
+                            Button {
+                                appState.manuallySelectOutputDevice(device)
+                            } label: {
+                                Image(systemName: "play.fill")
+                            }
+                            .buttonStyle(.borderless)
+                            .help("Play on this device")
+                            .disabled(!row.isConnected)
+                            .opacity(row.isConnected ? 1.0 : 0.3)
+                        } else {
+                            Image(systemName: "play.fill")
+                                .foregroundStyle(.secondary)
+                                .opacity(0.2)
                         }
                     }
                 }

@@ -111,6 +111,14 @@ final class AppState {
         defaultOutputDeviceID = audioManager.getDefaultOutputDeviceID()
     }
 
+    /// Manually route output to a specific device and turn auto-switch off.
+    /// This does not change the saved priority order.
+    func manuallySelectOutputDevice(_ device: AudioDevice) {
+        autoSwitchEnabled = false
+        _ = audioManager.setDefaultOutputDevice(device.id)
+        defaultOutputDeviceID = audioManager.getDefaultOutputDeviceID()
+    }
+
     /// Set priority order to a new UID list (e.g. after drag reorder in UI). Persists.
     func setPriorityOrder(_ uids: [String]) {
         priorityOrder = uids
