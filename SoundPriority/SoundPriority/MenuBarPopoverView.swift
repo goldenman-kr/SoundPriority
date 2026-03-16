@@ -60,7 +60,7 @@ struct MenuHeaderSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
-                Text("AudioPriority")
+                Text("SoundPriority")
                     .font(.headline)
                     .fontWeight(.semibold)
                 Spacer()
@@ -140,7 +140,7 @@ struct ActionsSection: View {
 
             MenuActionRow(
                 iconName: "xmark.circle",
-                title: "Quit AudioPriority",
+                title: "Quit SoundPriority",
                 subtitle: nil,
                 isDestructive: true
             ) {

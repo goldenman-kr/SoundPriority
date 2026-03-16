@@ -14,7 +14,7 @@ struct SoundPriorityApp: App {
 
     var body: some Scene {
         // Settings window (opened from the custom status bar popover).
-        Window("AudioPriority Settings", id: "settings") {
+        Window("SoundPriority Settings", id: "settings") {
             SettingsView(appState: appState)
                 .onAppear {
                     appState.ensurePriorityContains(devices: appState.outputDevices)
