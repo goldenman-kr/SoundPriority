@@ -27,5 +27,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Status bar controller owns the NSStatusItem and toggles the popover.
         statusBarController = StatusBarController(popover: popover)
     }
+
+    /// For a menu bar utility app, closing the last window must not quit the app.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
+    }
 }
 
