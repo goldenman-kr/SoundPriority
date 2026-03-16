@@ -71,9 +71,24 @@ struct SettingsView: View {
                 .onMove(perform: movePriority)
             }
             .listStyle(.inset)
+            
+            Spacer(minLength: 8)
+            
+            // App version at the bottom of the settings window.
+            Text(versionString)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
         .padding()
         .frame(minWidth: 360, minHeight: 320)
+    }
+
+    /// Version string from Info.plist, e.g. "Version 1.0 (Build 3)".
+    private var versionString: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info?["CFBundleVersion"] as? String ?? "?"
+        return "Version \(version) (Build \(build))"
     }
 
     private var launchAtLoginBinding: Binding<Bool> {
