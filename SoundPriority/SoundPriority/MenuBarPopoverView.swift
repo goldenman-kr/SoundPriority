@@ -109,6 +109,7 @@ struct MenuSectionView<Content: View>: View {
 
 struct ActionsSection: View {
     @Bindable var appState: AppState
+    @Environment(\.openWindow) private var openWindow
 
     private var launchAtLoginBinding: Binding<Bool> {
         Binding(
@@ -131,9 +132,8 @@ struct ActionsSection: View {
                 subtitle: "Configure device priority",
                 isDestructive: false
             ) {
+                openWindow(id: "settings")
                 NSApplication.shared.activate(ignoringOtherApps: true)
-                NSApplication.shared.windows.first { $0.identifier?.rawValue.contains("settings") == true }?
-                    .makeKeyAndOrderFront(nil)
             }
 
             LaunchAtLoginRow(isOn: launchAtLoginBinding)
@@ -270,4 +270,3 @@ private extension View {
         modifier(PressEventsModifier(onPress: onPress, onRelease: onRelease))
     }
 }
-
